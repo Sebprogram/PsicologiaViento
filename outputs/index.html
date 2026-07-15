@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>El Viento y la Calma</title>
+  <style>
+    :root {
+      --cream: #f5ead7;
+      --cream-deep: #ead7b7;
+      --ink: #5d3f2d;
+      --muted: #92735d;
+      --wood: #6f452f;
+      --wood-dark: #4b2f23;
+      --leaf-1: #bf6242;
+      --leaf-2: #d99148;
+      --leaf-3: #caa348;
+      --leaf-4: #8f4938;
+      --panel: rgba(255, 250, 240, 0.72);
+      --panel-strong: rgba(255, 250, 240, 0.9);
+      --shadow: rgba(83, 54, 32, 0.18);
+      --bubble-font: "Arial Rounded MT Bold", "Comic Sans MS", "Trebuchet MS", system-ui, sans-serif;
+      --game-title-font: "Cooper Black", "Arial Rounded MT Bold", "Comic Sans MS", "Trebuchet MS", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      color: var(--ink);
+      font-family: var(--game-title-font);
+      background:
+        radial-gradient(circle at 20% 12%, rgba(217, 145, 72, 0.14), transparent 28%),
+        radial-gradient(circle at 80% 8%, rgba(191, 98, 66, 0.12), transparent 30%),
+        linear-gradient(145deg, #f8efdf 0%, #ecd7b7 100%);
+    }
+
+    .game-shell {
+      width: min(96vw, 1020px);
+      position: relative;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      border-radius: 18px;
+      overflow: hidden;
+      background: var(--cream);
+      box-shadow: 0 24px 70px var(--shadow), 0 3px 14px rgba(83, 54, 32, 0.1);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: none;
+    }
+
+    canvas.pointer-locked {
+      cursor: none;
+    }
+
+    .hud {
+      position: absolute;
+      top: 18px;
+      left: 18px;
+      right: 18px;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+
+    .hud.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .hud-pill {
+      min-width: 112px;
+      padding: 10px 14px;
+      border: 2px solid #7a4428;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #fff5d8, #eac58b);
+      backdrop-filter: blur(12px);
+      box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.82), 0 4px 0 #8e4a2b, 0 8px 16px rgba(83, 54, 32, 0.14);
+      text-align: center;
+      font-size: 15px;
+      font-weight: 700;
+      text-shadow: 0 1px 0 #fff8e9;
+    }
+
+    #scoreText,
+    #timeText {
+      display: inline-block;
+      min-width: 2.15ch;
+      margin-left: 4px;
+      color: #f09a28;
+      font-size: 1.72em;
+      font-weight: 900;
+      line-height: 0.78;
+      vertical-align: -3px;
+      -webkit-text-stroke: 1px #6d3820;
+      text-shadow: none;
+    }
+
+    #timeText {
+      min-width: 3.75ch;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      z-index: 6;
+      display: grid;
+      place-items: center;
+      padding: clamp(18px, 5vw, 48px);
+      background: linear-gradient(180deg, rgba(248, 239, 223, 0.34), rgba(235, 216, 185, 0.68));
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 260ms ease, visibility 260ms ease;
+    }
+
+    .screen.active {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .screen-card {
+      width: min(100%, 560px);
+      padding: clamp(24px, 5vw, 44px);
+      border: 1px solid rgba(93, 63, 45, 0.12);
+      border-radius: 18px;
+      background: var(--panel-strong);
+      box-shadow: 0 22px 60px rgba(83, 54, 32, 0.16);
+      text-align: center;
+      backdrop-filter: blur(14px);
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      line-height: 0;
+    }
+
+    .game-title-svg {
+      display: block;
+      width: min(100%, 600px);
+      height: auto;
+      margin: 0 auto;
+      overflow: visible;
+    }
+
+    .game-title-svg text {
+      font-family: var(--game-title-font);
+      font-size: 74px;
+      font-weight: 900;
+      fill: url(#titleFill);
+      stroke: #6d3820;
+      stroke-width: 3px;
+      stroke-linejoin: round;
+      paint-order: stroke fill;
+    }
+
+    .game-title-svg .title-lower {
+      font-size: 70px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: clamp(28px, 6vw, 48px);
+      font-family: var(--game-title-font);
+      font-weight: 900;
+      letter-spacing: 0;
+      color: #df7f2b;
+      -webkit-text-stroke: 1.5px #6d3820;
+      text-shadow:
+        0 2px 0 #ffd978,
+        0 4px 0 #9a3f22,
+        0 7px 12px rgba(83, 54, 32, 0.18);
+    }
+
+    p {
+      margin: 0 auto 18px;
+      max-width: 42rem;
+      font-family: var(--game-title-font);
+      color: var(--muted);
+      font-size: clamp(15px, 2.4vw, 18px);
+      font-weight: 700;
+      line-height: 1.55;
+      text-shadow: 0 1px 0 rgba(255, 249, 236, 0.9);
+    }
+
+    .score-final {
+      margin: 12px 0 18px;
+      color: #dd7d2b;
+      font-size: clamp(24px, 6vw, 44px);
+      font-family: var(--game-title-font);
+      font-weight: 900;
+      -webkit-text-stroke: 1px #6d3820;
+      text-shadow: 0 2px 0 #ffd978, 0 4px 0 #9a3f22, 0 7px 12px rgba(83, 54, 32, 0.18);
+    }
+
+    button {
+      appearance: none;
+      border: 3px solid #6c341f;
+      border-radius: 999px;
+      padding: 12px 29px 14px;
+      color: #fff8e9;
+      background: linear-gradient(180deg, #f3aa45 0%, #d8752d 48%, #a94924 100%);
+      box-shadow: inset 0 3px 0 rgba(255, 238, 172, 0.86), inset 0 -4px 0 rgba(104, 45, 28, 0.36), 0 5px 0 #71351f, 0 11px 18px rgba(83, 54, 32, 0.24);
+      font-family: var(--game-title-font);
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-shadow: 0 2px 0 #75351f;
+      cursor: pointer;
+      transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: inset 0 3px 0 rgba(255, 242, 190, 0.96), inset 0 -4px 0 rgba(104, 45, 28, 0.36), 0 7px 0 #71351f, 0 14px 22px rgba(83, 54, 32, 0.28);
+      filter: saturate(1.12) brightness(1.04);
+    }
+
+    button:active {
+      transform: translateY(4px);
+      box-shadow: inset 0 2px 0 rgba(255, 238, 172, 0.76), inset 0 -2px 0 rgba(104, 45, 28, 0.28), 0 1px 0 #71351f, 0 5px 10px rgba(83, 54, 32, 0.2);
+    }
+
+    .quiet-note {
+      margin-top: 18px;
+      margin-bottom: 0;
+      color: rgba(93, 63, 45, 0.58);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .purpose-note {
+      margin-bottom: 14px;
+      color: var(--ink);
+      font-size: clamp(17px, 2.7vw, 21px);
+      line-height: 1.48;
+    }
+
+    @media (max-width: 560px) {
+      body {
+        padding: 12px;
+      }
+
+      .canvas-wrap,
+      .screen-card {
+        border-radius: 14px;
+      }
+
+      .hud {
+        top: 10px;
+        left: 10px;
+        right: 10px;
+      }
+
+      .hud-pill {
+        min-width: 92px;
+        padding: 8px 10px;
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="game-shell" aria-label="Juego El Viento y la Calma">
+    <section class="canvas-wrap">
+      <canvas id="gameCanvas" width="800" height="600" aria-label="Bosque otonal con hojas cayendo y cesta"></canvas>
+
+      <div id="hud" class="hud" aria-live="polite">
+        <div class="hud-pill">Hojas: <span id="scoreText">0</span></div>
+        <div class="hud-pill">Tiempo: <span id="timeText">5:00</span></div>
+      </div>
+
+      <section id="startScreen" class="screen active" aria-labelledby="startTitle">
+        <div class="screen-card">
+          <h1 id="startTitle" aria-label="El Viento y la Calma">
+            <svg class="game-title-svg" viewBox="0 0 620 205" aria-hidden="true">
+              <defs>
+                <linearGradient id="titleFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#ffe18a"></stop>
+                  <stop offset="48%" stop-color="#efa13b"></stop>
+                  <stop offset="100%" stop-color="#d46727"></stop>
+                </linearGradient>
+                <filter id="titleDepth" x="-10%" y="-15%" width="120%" height="135%">
+                  <feDropShadow dx="0" dy="5" stdDeviation="0" flood-color="#9a3f22"></feDropShadow>
+                  <feDropShadow dx="0" dy="9" stdDeviation="2" flood-color="#5d3527" flood-opacity="0.42"></feDropShadow>
+                </filter>
+                <path id="titleArcTop" d="M 75 92 Q 310 18 545 92"></path>
+                <path id="titleArcBottom" d="M 52 186 Q 310 112 568 186"></path>
+              </defs>
+              <g filter="url(#titleDepth)">
+                <text><textPath href="#titleArcTop" startOffset="50%" text-anchor="middle">El Viento</textPath></text>
+                <text class="title-lower"><textPath href="#titleArcBottom" startOffset="50%" text-anchor="middle">y la Calma</textPath></text>
+              </g>
+            </svg>
+          </h1>
+          <p class="purpose-note">Un juego para explorar la atencion y la autorregulacion a traves de una pausa breve, consciente y relajante.</p>
+          <p>Mueve la cesta con suavidad. Si corres demasiado, el viento despierta y las hojas cambian su rumbo.</p>
+          <button id="startButton" type="button">Iniciar</button>
+          <p class="quiet-note">Mouse o flechas del teclado</p>
+        </div>
+      </section>
+
+      <section id="endScreen" class="screen" aria-labelledby="endTitle">
+        <div class="screen-card">
+          <h2 id="endTitle">La tarde descansa</h2>
+          <div id="finalScore" class="score-final">0 hojas</div>
+          <p id="finalMessage">Entre hojas lentas y aire dorado, la calma tambien encuentra su propio ritmo.</p>
+          <button id="restartButton" type="button">Reiniciar</button>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    // Duracion de la partida: 300 segundos son 5 minutos.
+    const GAME_DURATION_SECONDS = 300;
+    const CANVAS_WIDTH = 800;
+    const CANVAS_HEIGHT = 600;
+    // Velocidad real (pixeles por segundo) que empieza a levantar una rafaga.
+    const WIND_SPEED_THRESHOLD = 190;
+    const WIND_MAX_STRENGTH = 1.45;
+    const LEAF_COLORS = ["#bf6242", "#d99148", "#caa348", "#8f4938", "#b56b39"];
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const hud = document.getElementById("hud");
+    const scoreText = document.getElementById("scoreText");
+    const timeText = document.getElementById("timeText");
+    const finalScore = document.getElementById("finalScore");
+    const finalMessage = document.getElementById("finalMessage");
+    const startScreen = document.getElementById("startScreen");
+    const endScreen = document.getElementById("endScreen");
+    const startButton = document.getElementById("startButton");
+    const restartButton = document.getElementById("restartButton");
+
+    let gameState = "start";
+    let score = 0;
+    let timeRemaining = GAME_DURATION_SECONDS;
+    let lastTime = 0;
+    let spawnTimer = 0;
+    let mouseInsideCanvas = false;
+    let pointerLocked = false;
+
+    const keys = {
+      left: false,
+      right: false
+    };
+
+    const basket = {
+      x: CANVAS_WIDTH / 2,
+      targetX: CANVAS_WIDTH / 2,
+      previousX: CANVAS_WIDTH / 2,
+      y: CANVAS_HEIGHT - 82,
+      width: 118,
+      height: 42,
+      speed: 460
+    };
+
+    const wind = {
+      strength: 0,
+      direction: 0,
+      flow: 0,
+      gust: 0,
+      particles: []
+    };
+
+    const leaves = [];
+
+    function init() {
+      startButton.addEventListener("click", startGame);
+      restartButton.addEventListener("click", startGame);
+
+      canvas.addEventListener("pointerenter", () => {
+        mouseInsideCanvas = true;
+      });
+
+      canvas.addEventListener("pointerleave", () => {
+        if (!pointerLocked) {
+          mouseInsideCanvas = false;
+        }
+      });
+
+      canvas.addEventListener("pointermove", handlePointerMove);
+      canvas.addEventListener("click", lockPointerToGame);
+      document.addEventListener("pointerlockchange", handlePointerLockChange);
+      window.addEventListener("keydown", handleKeyDown);
+      window.addEventListener("keyup", handleKeyUp);
+
+      createWindParticles();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function startGame() {
+      gameState = "playing";
+      score = 0;
+      timeRemaining = GAME_DURATION_SECONDS;
+      lastTime = 0;
+      spawnTimer = 0;
+      leaves.length = 0;
+      wind.strength = 0;
+      wind.direction = 0;
+      wind.flow = 0;
+      wind.gust = 0;
+
+      basket.x = CANVAS_WIDTH / 2;
+      basket.targetX = CANVAS_WIDTH / 2;
+      basket.previousX = CANVAS_WIDTH / 2;
+
+      updateHud();
+      startScreen.classList.remove("active");
+      endScreen.classList.remove("active");
+      hud.classList.add("visible");
+      lockPointerToGame();
+    }
+
+    function endGame() {
+      gameState = "end";
+      releasePointerFromGame();
+      hud.classList.remove("visible");
+      finalScore.textContent = score === 1 ? "1 hoja" : score + " hojas";
+      finalMessage.textContent = getFinalMessage(score);
+      endScreen.classList.add("active");
+    }
+
+    function getFinalMessage(finalLeafCount) {
+      if (finalLeafCount >= 20) {
+        return "Has dejado que el otono baile contigo. Respira hondo: cada instante de calma tambien cuenta.";
+      }
+
+      if (finalLeafCount >= 10) {
+        return "Un hermoso ritmo: la paciencia hizo espacio entre el aire dorado y las hojas que caen.";
+      }
+
+      return "No hay prisa. El bosque sigue aqui, y cada hoja recuerda que la calma tambien es avanzar.";
+    }
+
+    function gameLoop(timestamp) {
+      if (!lastTime) {
+        lastTime = timestamp;
+      }
+
+      const delta = Math.min((timestamp - lastTime) / 1000, 0.033);
+      lastTime = timestamp;
+
+      if (gameState === "playing") {
+        update(delta);
+      }
+
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function update(delta) {
+      timeRemaining -= delta;
+      if (timeRemaining <= 0) {
+        timeRemaining = 0;
+        updateHud();
+        endGame();
+        return;
+      }
+
+      updateBasket(delta);
+      const basketVelocity = measureBasketVelocity(delta);
+      updateWind(basketVelocity, delta);
+      updateLeaves(delta);
+      updateWindParticles(delta);
+      checkCollisions();
+      updateHud();
+    }
+
+    function handlePointerMove(event) {
+      if (pointerLocked) {
+        const scale = CANVAS_WIDTH / canvas.getBoundingClientRect().width;
+        basket.targetX += event.movementX * scale;
+        return;
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const normalizedX = (event.clientX - rect.left) / rect.width;
+      basket.targetX = clamp(normalizedX * CANVAS_WIDTH, basket.width / 2 + 10, CANVAS_WIDTH - basket.width / 2 - 10);
+      mouseInsideCanvas = true;
+    }
+
+    function lockPointerToGame() {
+      if (gameState === "playing" && canvas.requestPointerLock && document.pointerLockElement !== canvas) {
+        canvas.requestPointerLock();
+      }
+    }
+
+    function releasePointerFromGame() {
+      if (document.pointerLockElement === canvas) {
+        document.exitPointerLock();
+      }
+    }
+
+    function handlePointerLockChange() {
+      pointerLocked = document.pointerLockElement === canvas;
+      mouseInsideCanvas = pointerLocked;
+      canvas.classList.toggle("pointer-locked", pointerLocked);
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "ArrowLeft") {
+        keys.left = true;
+        event.preventDefault();
+      }
+
+      if (event.key === "ArrowRight") {
+        keys.right = true;
+        event.preventDefault();
+      }
+    }
+
+    function handleKeyUp(event) {
+      if (event.key === "ArrowLeft") {
+        keys.left = false;
+      }
+
+      if (event.key === "ArrowRight") {
+        keys.right = false;
+      }
+    }
+
+    function updateBasket(delta) {
+      basket.previousX = basket.x;
+
+      if (keys.left || keys.right) {
+        const keyboardDirection = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+        basket.targetX += keyboardDirection * basket.speed * delta;
+      } else if (!mouseInsideCanvas) {
+        basket.targetX += (basket.x - basket.targetX) * 0.05;
+      }
+
+      basket.targetX = clamp(basket.targetX, basket.width / 2 + 10, CANVAS_WIDTH - basket.width / 2 - 10);
+      basket.x += (basket.targetX - basket.x) * 0.16;
+    }
+
+    function measureBasketVelocity(delta) {
+      return (basket.x - basket.previousX) / Math.max(delta, 0.001);
+    }
+
+    function updateWind(basketVelocity, delta) {
+      const speed = Math.abs(basketVelocity);
+
+      if (speed > WIND_SPEED_THRESHOLD) {
+        const desiredDirection = Math.sign(basketVelocity);
+        const intensity = clamp((speed - WIND_SPEED_THRESHOLD) / 300, 0, 1);
+        const targetFlow = desiredDirection * (0.62 + intensity * 1.02);
+        const response = 1 - Math.exp(-delta * 11);
+
+        // El flujo cambia con rapidez, pero conserva una breve inercia al invertir la cesta.
+        wind.flow += (targetFlow - wind.flow) * response;
+        wind.gust = Math.max(wind.gust, 0.3 + intensity * 0.95);
+      } else {
+        wind.flow *= Math.exp(-delta * 1.8);
+        wind.gust *= Math.exp(-delta * 2.5);
+      }
+
+      wind.strength = clamp(Math.abs(wind.flow) + wind.gust * 0.3, 0, WIND_MAX_STRENGTH);
+      if (Math.abs(wind.flow) > 0.025) {
+        wind.direction = Math.sign(wind.flow);
+      }
+
+      if (wind.strength < 0.018) {
+        wind.strength = 0;
+        wind.flow = 0;
+        wind.gust = 0;
+      }
+    }
+
+    function updateLeaves(delta) {
+      spawnTimer -= delta;
+      if (spawnTimer <= 0) {
+        spawnLeaf();
+        spawnTimer = randomRange(0.34, 0.62);
+      }
+
+      for (let i = leaves.length - 1; i >= 0; i--) {
+        const leaf = leaves[i];
+        leaf.age += delta;
+        leaf.y += leaf.fallSpeed * delta;
+
+        const calmSway = Math.sin(leaf.age * leaf.swaySpeed + leaf.phase) * leaf.swayAmount * delta;
+
+        // La corriente principal siempre manda la direccion de la hoja.
+        // Los remolinos solo alteran su intensidad para no invertir la rafaga.
+        const airflow = wind.flow * leaf.windFactor * leaf.windResponse;
+        const turbulence = (
+          Math.sin(leaf.age * leaf.turbulenceSpeed + leaf.phase) +
+          Math.sin(leaf.age * 17 + leaf.gustSeed) * 0.5
+        ) * wind.gust * leaf.turbulenceAmount * 0.22;
+
+        // Una rafaga intensa tambien reduce la caida y puede levantar las hojas mas ligeras.
+        const lift = (Math.abs(wind.flow) * 0.72 + wind.gust * 0.55) * leaf.liftFactor;
+
+        leaf.airVelocity += (airflow + turbulence - leaf.airVelocity * leaf.airDrag) * delta;
+        leaf.liftVelocity += (lift - leaf.liftVelocity * 3.2) * delta;
+        leaf.x += calmSway + leaf.airVelocity * delta;
+        leaf.y -= leaf.liftVelocity * delta;
+        leaf.rotation += (leaf.spin + leaf.airVelocity * 0.016 + wind.gust * wind.direction * 2.4) * delta;
+
+        if (leaf.y > CANVAS_HEIGHT + 48 || leaf.x < -80 || leaf.x > CANVAS_WIDTH + 80) {
+          leaves.splice(i, 1);
+        }
+      }
+    }
+
+    function spawnLeaf() {
+      leaves.push({
+        x: randomRange(28, CANVAS_WIDTH - 28),
+        y: -32,
+        size: randomRange(12, 22),
+        fallSpeed: randomRange(58, 104),
+        color: LEAF_COLORS[Math.floor(Math.random() * LEAF_COLORS.length)],
+        rotation: randomRange(-Math.PI, Math.PI),
+        spin: randomRange(-1.5, 1.5),
+        phase: randomRange(0, Math.PI * 2),
+        swaySpeed: randomRange(1.5, 2.7),
+        swayAmount: randomRange(26, 54),
+        // Cada hoja tiene una resistencia distinta: las ligeras salen antes con el viento.
+        windFactor: randomRange(460, 760),
+        windResponse: randomRange(0.72, 1.22),
+        airDrag: randomRange(1.75, 2.35),
+        turbulenceAmount: randomRange(120, 220),
+        turbulenceSpeed: randomRange(7, 12),
+        gustSeed: randomRange(0, Math.PI * 2),
+        airVelocity: randomRange(-8, 8),
+        liftFactor: randomRange(80, 155),
+        liftVelocity: 0,
+        age: 0
+      });
+    }
+
+    function checkCollisions() {
+      const basketLeft = basket.x - basket.width / 2;
+      const basketRight = basket.x + basket.width / 2;
+      const basketTop = basket.y - basket.height / 2;
+      const basketBottom = basket.y + basket.height / 2 + 8;
+
+      for (let i = leaves.length - 1; i >= 0; i--) {
+        const leaf = leaves[i];
+        const leafRadius = leaf.size * 0.7;
+        const isInsideX = leaf.x + leafRadius > basketLeft && leaf.x - leafRadius < basketRight;
+        const isInsideY = leaf.y + leafRadius > basketTop && leaf.y - leafRadius < basketBottom;
+
+        if (isInsideX && isInsideY) {
+          leaves.splice(i, 1);
+          score += 1;
+        }
+      }
+    }
+
+    function createWindParticles() {
+      wind.particles = Array.from({ length: 42 }, () => ({
+        x: randomRange(0, CANVAS_WIDTH),
+        y: randomRange(50, CANVAS_HEIGHT - 120),
+        length: randomRange(60, 150),
+        speed: randomRange(180, 420),
+        alpha: randomRange(0.28, 0.64),
+        bend: randomRange(-12, 12)
+      }));
+    }
+
+    function updateWindParticles(delta) {
+      if (wind.strength <= 0) {
+        return;
+      }
+
+      wind.particles.forEach((particle) => {
+        particle.x += wind.direction * particle.speed * wind.strength * delta;
+        particle.y += Math.sin((particle.x + particle.length) * 0.02) * wind.gust * 1.6;
+
+        if (wind.direction >= 0 && particle.x > CANVAS_WIDTH + particle.length) {
+          particle.x = -particle.length;
+          particle.y = randomRange(50, CANVAS_HEIGHT - 130);
+        }
+
+        if (wind.direction < 0 && particle.x < -particle.length) {
+          particle.x = CANVAS_WIDTH + particle.length;
+          particle.y = randomRange(50, CANVAS_HEIGHT - 130);
+        }
+      });
+    }
+
+    function updateHud() {
+      scoreText.textContent = String(score);
+      const seconds = Math.ceil(timeRemaining);
+      const minutes = Math.floor(seconds / 60);
+      const remainder = String(seconds % 60).padStart(2, "0");
+      timeText.textContent = minutes + ":" + remainder;
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+      drawBackground();
+      drawAmbientLeaves();
+
+      leaves.forEach((leaf) => drawLeaf(ctx, leaf));
+
+      if (gameState === "playing") {
+        drawBasket(ctx);
+      } else {
+        drawRestingBasket(ctx);
+      }
+
+      drawWindIndicator(ctx);
+      drawSoftVignette();
+    }
+
+    function drawBackground() {
+      const skyGradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+      skyGradient.addColorStop(0, "#f7ecd9");
+      skyGradient.addColorStop(0.62, "#efd9b6");
+      skyGradient.addColorStop(1, "#e5c79b");
+      ctx.fillStyle = skyGradient;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      ctx.save();
+      ctx.globalAlpha = 0.18;
+      drawSunCircle(620, 108, 70, "#d99148");
+      ctx.restore();
+
+      drawTreeLine(0.22, "#b48458", 118);
+      drawTreeLine(0.34, "#8d6047", 86);
+
+      ctx.fillStyle = "#d1a56e";
+      ctx.beginPath();
+      ctx.moveTo(0, CANVAS_HEIGHT - 94);
+      ctx.bezierCurveTo(180, CANVAS_HEIGHT - 124, 300, CANVAS_HEIGHT - 72, 455, CANVAS_HEIGHT - 96);
+      ctx.bezierCurveTo(605, CANVAS_HEIGHT - 118, 702, CANVAS_HEIGHT - 82, CANVAS_WIDTH, CANVAS_HEIGHT - 104);
+      ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.lineTo(0, CANVAS_HEIGHT);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#c7915f";
+      ctx.beginPath();
+      ctx.moveTo(0, CANVAS_HEIGHT - 56);
+      ctx.bezierCurveTo(220, CANVAS_HEIGHT - 88, 430, CANVAS_HEIGHT - 36, CANVAS_WIDTH, CANVAS_HEIGHT - 66);
+      ctx.lineTo(CANVAS_WIDTH, CANVAS_HEIGHT);
+      ctx.lineTo(0, CANVAS_HEIGHT);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawTreeLine(alpha, color, baseHeight) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 3;
+
+      for (let x = -20; x < CANVAS_WIDTH + 40; x += 58) {
+        const height = baseHeight + Math.sin(x * 0.04) * 18;
+        const baseY = CANVAS_HEIGHT - 132;
+        ctx.beginPath();
+        ctx.moveTo(x, baseY);
+        ctx.lineTo(x + 12, baseY - height);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.ellipse(x + 12, baseY - height - 10, 20, 34, -0.18, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function drawAmbientLeaves() {
+      ctx.save();
+      ctx.globalAlpha = 0.12;
+      for (let i = 0; i < 18; i++) {
+        const x = (i * 73 + 34) % CANVAS_WIDTH;
+        const y = 82 + ((i * 47) % 340);
+        const size = 8 + (i % 4) * 3;
+        drawSimpleLeafShape(x, y, size, LEAF_COLORS[i % LEAF_COLORS.length], i * 0.7);
+      }
+      ctx.restore();
+    }
+
+    function drawLeaf(context, leaf) {
+      context.save();
+      context.translate(leaf.x, leaf.y);
+      context.rotate(leaf.rotation);
+      context.fillStyle = leaf.color;
+      context.strokeStyle = "rgba(83, 54, 32, 0.18)";
+      context.lineWidth = 1;
+
+      context.beginPath();
+      context.moveTo(0, -leaf.size);
+      context.quadraticCurveTo(leaf.size * 0.88, -leaf.size * 0.28, leaf.size * 0.22, leaf.size);
+      context.quadraticCurveTo(0, leaf.size * 1.14, -leaf.size * 0.22, leaf.size);
+      context.quadraticCurveTo(-leaf.size * 0.88, -leaf.size * 0.28, 0, -leaf.size);
+      context.closePath();
+      context.fill();
+      context.stroke();
+
+      context.beginPath();
+      context.moveTo(0, -leaf.size * 0.76);
+      context.lineTo(0, leaf.size * 0.78);
+      context.strokeStyle = "rgba(255, 244, 226, 0.42)";
+      context.stroke();
+      context.restore();
+    }
+
+    function drawSimpleLeafShape(x, y, size, color, rotation) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(0, -size);
+      ctx.lineTo(size * 0.68, 0);
+      ctx.lineTo(0, size);
+      ctx.lineTo(-size * 0.68, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawBasket(context) {
+      context.save();
+      context.translate(basket.x, basket.y);
+
+      context.strokeStyle = "#4b2f23";
+      context.lineWidth = 6;
+      context.lineCap = "round";
+      context.beginPath();
+      context.arc(0, -14, 44, Math.PI * 1.08, Math.PI * 1.92);
+      context.stroke();
+
+      const basketGradient = context.createLinearGradient(0, -22, 0, 34);
+      basketGradient.addColorStop(0, "#8a5135");
+      basketGradient.addColorStop(1, "#5c3929");
+      context.fillStyle = basketGradient;
+      context.strokeStyle = "rgba(75, 47, 35, 0.26)";
+      context.lineWidth = 2;
+
+      context.beginPath();
+      context.moveTo(-basket.width / 2, -18);
+      context.lineTo(basket.width / 2, -18);
+      context.lineTo(basket.width / 2 - 16, basket.height / 2);
+      context.quadraticCurveTo(0, basket.height / 2 + 10, -basket.width / 2 + 16, basket.height / 2);
+      context.closePath();
+      context.fill();
+      context.stroke();
+
+      context.globalAlpha = 0.22;
+      context.strokeStyle = "#fff2d8";
+      context.lineWidth = 1;
+      for (let x = -38; x <= 38; x += 19) {
+        context.beginPath();
+        context.moveTo(x, -14);
+        context.lineTo(x * 0.72, 20);
+        context.stroke();
+      }
+
+      context.restore();
+    }
+
+    function drawRestingBasket(context) {
+      const savedX = basket.x;
+      basket.x = CANVAS_WIDTH / 2;
+      drawBasket(context);
+      basket.x = savedX;
+    }
+
+    function drawWindIndicator(context) {
+      if (wind.strength <= 0.04) {
+        return;
+      }
+
+      context.save();
+      const direction = wind.direction || 1;
+      const intensity = clamp(wind.strength / WIND_MAX_STRENGTH, 0, 1);
+
+      // Velo ligero: hace visible el volumen de aire sin tapar el bosque.
+      const airVeil = context.createLinearGradient(
+        direction > 0 ? 0 : CANVAS_WIDTH,
+        0,
+        direction > 0 ? CANVAS_WIDTH : 0,
+        0
+      );
+      airVeil.addColorStop(0, "rgba(255, 250, 239, 0)");
+      airVeil.addColorStop(0.52, "rgba(255, 250, 239, " + (0.05 + intensity * 0.09) + ")");
+      airVeil.addColorStop(1, "rgba(255, 250, 239, 0)");
+      context.fillStyle = airVeil;
+      context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      context.strokeStyle = "rgba(255, 250, 239, 0.82)";
+      context.lineCap = "round";
+
+      wind.particles.forEach((particle) => {
+        const length = particle.length * (0.78 + intensity * 0.72);
+        context.globalAlpha = clamp(particle.alpha * (0.32 + intensity * 0.9), 0, 0.74);
+        context.lineWidth = 1 + intensity * 1.6;
+        context.beginPath();
+        context.moveTo(particle.x, particle.y);
+        context.quadraticCurveTo(
+          particle.x - direction * length * 0.46,
+          particle.y + particle.bend,
+          particle.x - direction * length,
+          particle.y + particle.bend * 0.35
+        );
+        context.stroke();
+      });
+
+      context.globalAlpha = clamp(0.45 + intensity * 0.42, 0, 0.86);
+      context.font = "700 18px 'Cooper Black', 'Arial Rounded MT Bold', 'Comic Sans MS', 'Trebuchet MS', sans-serif";
+      context.fillStyle = "rgba(255, 250, 239, 0.78)";
+      context.textAlign = "center";
+      context.fillText(intensity > 0.58 ? "Rafaga " + (direction > 0 ? "->" : "<-") : "Viento", CANVAS_WIDTH / 2, 58);
+      context.restore();
+    }
+
+    function drawSoftVignette() {
+      const gradient = ctx.createRadialGradient(
+        CANVAS_WIDTH / 2,
+        CANVAS_HEIGHT / 2,
+        120,
+        CANVAS_WIDTH / 2,
+        CANVAS_HEIGHT / 2,
+        520
+      );
+      gradient.addColorStop(0, "rgba(255,255,255,0)");
+      gradient.addColorStop(1, "rgba(83,54,32,0.08)");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
+    function drawSunCircle(x, y, radius, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function randomRange(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    init();
+  </script>
+</body>
+</html>
